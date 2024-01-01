@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# Python script for crossposting YouTube Community posts to a Discord channel.
+# Uses https://github.com/Benjamin-Loison/YouTube-operational-API to fetch the Community Posts since YouTube's Data V3 API is useless for this
+# I would recommend using your instance of the YouTube-operational-API to avoid any issues.
+# 
+# Edit the variables in the main() function as needed, and the api_url in the fetch_youtube_content function.
+
 import requests
 
 # Fetch content from a YouTube channel's Community tab using the custom API
@@ -85,18 +91,21 @@ def post_to_discord(webhook_url, channel_name, content):
 def main():
     channel_id = 'UCE6acMV3m35znLcf0JGNn7Q'  # Example channel ID
     youtube_channel_url = f"https://www.youtube.com/channel/{channel_id}"
-    webhook_url = 'https://discord.com/api/webhooks/1191138143613759528/xZBJJaFo03vIEGzz5DuWu2Kted6e4np75PrIElpYtvA9xP83JySaWxwvs0-ZC1MHuMp_'
+    webhook_url = 'DISCORD_WEBHOOK_URL' # Replace with your Discord webhook URL
     channel_name = 'Gibi ASMR'  # Set the channel name
     all_posts = True # Select whether to send all available community posts to the webhook
 
     youtube_content = fetch_youtube_content(channel_id)
-    #print(youtube_content)
     if youtube_content and "items" in youtube_content:
         for item in youtube_content["items"]:
-            # Check if there are multiple posts in the community item
-            for post in item.get("community", []):
+            community_posts = item.get("community", [])
+            
+            # Reverse the order of the posts for chronological posting if all_posts is True
+            if all_posts:
+                community_posts = reversed(community_posts)
+
+            for post in community_posts:
                 content = extract_content(post, youtube_channel_url)
-                #print(content)
                 if content and not is_posted(content["url"]):
                     response = post_to_discord(webhook_url, channel_name, content)
                     if response in range(200, 300):
@@ -104,10 +113,9 @@ def main():
                     print(f"Posted to Discord with status code: {response}")
 
                 if not all_posts:
-                    break  # Breaks the inner loop, continue for the outer loop
+                    break  # Breaks the inner loop, stops after the first (most recent) post
             if not all_posts:
                 break  # Breaks the outer loop if only the latest post is needed
-
 
 if __name__ == "__main__":
     main()
