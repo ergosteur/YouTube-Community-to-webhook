@@ -92,6 +92,7 @@ def main():
             # Check if there are multiple posts in the community item
             for post in item.get("community", []):
                 content = extract_content(post, youtube_channel_url)
+                print(content)
                 if content and not is_posted(content["url"]):
                     response = post_to_discord(webhook_url, channel_name, content)
                     if response in range(200, 300):
