@@ -90,13 +90,13 @@ def main():
     all_posts = True # Select whether to send all available community posts to the webhook
 
     youtube_content = fetch_youtube_content(channel_id)
-    print(youtube_content)
+    #print(youtube_content)
     if youtube_content and "items" in youtube_content:
         for item in youtube_content["items"]:
             # Check if there are multiple posts in the community item
             for post in item.get("community", []):
                 content = extract_content(post, youtube_channel_url)
-                print(content)
+                #print(content)
                 if content and not is_posted(content["url"]):
                     response = post_to_discord(webhook_url, channel_name, content)
                     if response in range(200, 300):
