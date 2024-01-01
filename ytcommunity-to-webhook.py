@@ -13,23 +13,31 @@ def fetch_youtube_content(channel_id):
 
 # Extract text, image URL, and other details from the API response
 def extract_content(post_data, youtube_channel_url):
-    # Extracting the post ID for URL construction
     post_id = post_data.get("id", "")
     post_url = f"https://www.youtube.com/post/{post_id}" if post_id else youtube_channel_url
 
-    # Extracting content from the post
-    text = post_data.get("contentText", [{}])[0].get("text", "")
+    # Concatenate text segments and links
+    full_text = ''
+    for text_part in post_data.get("contentText", []):
+        if "url" in text_part:
+            # Append both the text and the URL for link segments
+            full_text += text_part.get("text", '') + " (" + text_part.get("url", '') + ") "
+        else:
+            # Append just the text for regular text segments
+            full_text += text_part.get("text", '')
+
     date = post_data.get("date", "Unknown")
-    image_url = post_data.get("images", [{}])[0].get("thumbnails", [{}])[-1].get("url", "")  # Get the largest thumbnail
+    image_url = post_data.get("images", [{}])[0].get("thumbnails", [{}])[-1].get("url", "")
 
     content = {
-        "text": text,
+        "text": full_text.strip(),
         "image_url": image_url,
         "published_at": date,
         "title": "New Community Post",
-        "url": post_url  # Use the constructed post URL
+        "url": post_url
     }
     return content
+
 
 
 # Log posted urls to file
