@@ -3,7 +3,7 @@ import requests
 
 # Fetch content from a YouTube channel's Community tab using the custom API
 def fetch_youtube_content(channel_id):
-    api_url = f"https://yt.lemnoslife.com/channels?part=community&id={channel_id}"
+    api_url = f"https://ergosteur.com/apis/YouTube-operational-API/channels?part=community&id={channel_id}"
     response = requests.get(api_url)
     if response.status_code == 200:
         return response.json()
@@ -14,17 +14,20 @@ def fetch_youtube_content(channel_id):
 # Extract text, image URL, and other details from the API response
 def extract_content(post_data, youtube_channel_url):
     post_id = post_data.get("id", "")
+    print(post_id)
     post_url = f"https://www.youtube.com/post/{post_id}" if post_id else youtube_channel_url
 
     # Concatenate text segments and links
     full_text = ''
     for text_part in post_data.get("contentText", []):
-        if "url" in text_part:
-            # Append both the text and the URL for link segments
-            full_text += text_part.get("text", '') + " (" + text_part.get("url", '') + ") "
-        else:
-            # Append just the text for regular text segments
-            full_text += text_part.get("text", '')
+        #if "url" in text_part:
+        #    # Append both the text and the URL for link segments
+        #    full_text += text_part.get("text", '') + " (" + text_part.get("url", '') + ") "
+        #else:
+        #    # Append just the text for regular text segments
+        #    full_text += text_part.get("text", '')
+        full_text += text_part.get("text", '')
+        #print(f"Text so far: {full_text}")
 
     date = post_data.get("date", "Unknown")
     image_url = post_data.get("images", [{}])[0].get("thumbnails", [{}])[-1].get("url", "")
@@ -87,6 +90,7 @@ def main():
     all_posts = True # Select whether to send all available community posts to the webhook
 
     youtube_content = fetch_youtube_content(channel_id)
+    print(youtube_content)
     if youtube_content and "items" in youtube_content:
         for item in youtube_content["items"]:
             # Check if there are multiple posts in the community item
