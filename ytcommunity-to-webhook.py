@@ -7,6 +7,7 @@
 
 import requests
 import time
+import time
 
 # Fetch content from a YouTube channel's Community tab using the custom API
 def fetch_youtube_content(channel_id):
@@ -25,6 +26,11 @@ def get_channel_info(channel_id, api_key):
     if response.status_code == 200:
         data = response.json()
         if "items" in data and len(data["items"]) > 0:
+            channel_info = data["items"][0]["snippet"]
+            channel_name = channel_info["title"]
+            channel_icon_url = channel_info.get("thumbnails", {}).get("default", {}).get("url", "")
+            return channel_name, channel_icon_url
+    return "Unknown Channel", ""
             channel_info = data["items"][0]["snippet"]
             channel_name = channel_info["title"]
             channel_icon_url = channel_info.get("thumbnails", {}).get("default", {}).get("url", "")
@@ -75,11 +81,15 @@ def is_posted(url, log_file="posted_urls.log"):
 # Post content to Discord via Webhook with the specified template and return the response status code
 def post_to_discord(webhook_url, channel_name, channel_icon_url, content, retry_count=0):
     max_retries = 3
+# Post content to Discord via Webhook with the specified template and return the response status code
+def post_to_discord(webhook_url, channel_name, channel_icon_url, content, retry_count=0):
+    max_retries = 3
     discord_data = {
         "embeds": [{
             "color": 16711680,
             "author": {
                 "name": channel_name,
+                "icon_url": channel_icon_url
                 "icon_url": channel_icon_url
             },
             "title": content["title"],
@@ -94,6 +104,13 @@ def post_to_discord(webhook_url, channel_name, channel_icon_url, content, retry_
     print("Sending data to Discord:", discord_data)
 
     response = requests.post(webhook_url, json=discord_data)
+    if response.status_code == 429 and retry_count < max_retries:
+        # Extract the retry_after value from the response
+        retry_after = response.json().get("retry_after", 1)  # Default to 1 second if not provided
+        print(f"Rate limited by Discord. Retrying after {retry_after} seconds (Retry {retry_count + 1}/{max_retries}).")
+        time.sleep(retry_after)  # Wait before retrying
+        return post_to_discord(webhook_url, channel_name, channel_icon_url, content, retry_count + 1)  # Retry posting with incremented retry count
+    elif response.status_code not in range(200, 300):
     if response.status_code == 429 and retry_count < max_retries:
         # Extract the retry_after value from the response
         retry_after = response.json().get("retry_after", 1)  # Default to 1 second if not provided
@@ -117,6 +134,8 @@ def main():
     youtube_channel_url = f"https://www.youtube.com/channel/{channel_id}"
     channel_name, channel_icon_url = get_channel_info(channel_id, api_key)  # Get the channel name and icon
     
+    channel_name, channel_icon_url = get_channel_info(channel_id, api_key)  # Get the channel name and icon
+    
     youtube_content = fetch_youtube_content(channel_id)
     if youtube_content and "items" in youtube_content:
         for item in youtube_content["items"]:
@@ -129,6 +148,7 @@ def main():
             for post in community_posts:
                 content = extract_content(post, youtube_channel_url)
                 if content and not is_posted(content["url"]):
+                    response = post_to_discord(webhook_url, channel_name, channel_icon_url, content)
                     response = post_to_discord(webhook_url, channel_name, channel_icon_url, content)
                     if response in range(200, 300):
                         log_post_url(content["url"])
