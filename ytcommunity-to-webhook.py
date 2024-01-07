@@ -37,7 +37,7 @@ def extract_content(post_data, youtube_channel_url):
     print(f"Got Community post: {post_id}")
     post_url = f"https://www.youtube.com/post/{post_id}" if post_id else youtube_channel_url
 
-    # Concatenate text segments and links
+    # Concatenate all text segments and links
     full_text = ''
     for text_part in post_data.get("contentText", []):
         full_text += text_part.get("text", '')
@@ -53,7 +53,7 @@ def extract_content(post_data, youtube_channel_url):
         "text": full_text.strip(),
         "image_url": image_url,
         "published_at": date,
-        "title": "New Community Post",
+        "title": "YouTube Community Post",
         "url": post_url
     }
     return content
@@ -73,9 +73,12 @@ def is_posted(url, log_file="posted_urls.log"):
         return False
 
 # Post content to Discord via Webhook with the specified template and return the response status code
-def post_to_discord(webhook_url, channel_name, channel_icon_url, content, retry_count=0):
+def post_to_discord(webhook_url, channel_name, channel_icon_url, content, mention, retry_count=0):
     max_retries = 3
+    # Determine the mention text based on the variables from main
+    mention_text = f"@{mention} " if mention != "none" else ""
     discord_data = {
+        "content": mention_text + "new community post!",
         "embeds": [{
             "color": 16711680,
             "author": {
@@ -99,7 +102,7 @@ def post_to_discord(webhook_url, channel_name, channel_icon_url, content, retry_
         retry_after = response.json().get("retry_after", 1)  # Default to 1 second if not provided
         print(f"Rate limited by Discord. Retrying after {retry_after} seconds (Retry {retry_count + 1}/{max_retries}).")
         time.sleep(retry_after)  # Wait before retrying
-        return post_to_discord(webhook_url, channel_name, channel_icon_url, content, retry_count + 1)  # Retry posting with incremented retry count
+        return post_to_discord(webhook_url, channel_name, channel_icon_url, content, mention, retry_count + 1)  # Retry posting with incremented retry count
     elif response.status_code not in range(200, 300):
         print("Error:", response.status_code, response.text)
     
@@ -110,6 +113,7 @@ def main():
     ## VARIABLES TO DEFINE BEFORE USE ##
     all_posts = True # Select whether to send all available community posts to the webhook
     channel_id = 'UCE6acMV3m35znLcf0JGNn7Q'  # YouTube channel ID
+    mention = "here"  # Set role to mention (everyone, here, none)
     api_key = 'YOUTUBE_API_KEY' # YouTube API Key from Google Developer console
     webhook_url = 'DISCORD_WEBHOOK_URL' # Replace with your Discord webhook URL
     ## END VARIABLES CONFIG ##
@@ -129,7 +133,7 @@ def main():
             for post in community_posts:
                 content = extract_content(post, youtube_channel_url)
                 if content and not is_posted(content["url"]):
-                    response = post_to_discord(webhook_url, channel_name, channel_icon_url, content)
+                    response = post_to_discord(webhook_url, channel_name, channel_icon_url, content, mention)
                     if response in range(200, 300):
                         log_post_url(content["url"])
                     print(f"{content['url']} posted to Discord with status code: {response}")
