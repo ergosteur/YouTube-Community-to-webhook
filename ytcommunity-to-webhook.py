@@ -17,27 +17,34 @@ def fetch_youtube_content(channel_id):
         print(f"Failed to fetch data: {response.status_code}")
         return None
 
+# Get Channel name from Channel ID using Official YouTube Data API (requires API Key)
+def get_channel_name(channel_id, api_key):
+    api_url = f"https://www.googleapis.com/youtube/v3/channels?part=snippet&id={channel_id}&key={api_key}"
+    response = requests.get(api_url)
+    if response.status_code == 200:
+        data = response.json()
+        if "items" in data and len(data["items"]) > 0:
+            return data["items"][0]["snippet"]["title"]
+    return "Unknown Channel"
+
 # Extract text, image URL, and other details from the API response
 def extract_content(post_data, youtube_channel_url):
     post_id = post_data.get("id", "")
-    print(post_id)
+    print(f"Got Community post: {post_id}")
     post_url = f"https://www.youtube.com/post/{post_id}" if post_id else youtube_channel_url
 
     # Concatenate text segments and links
     full_text = ''
     for text_part in post_data.get("contentText", []):
-        #if "url" in text_part:
-        #    # Append both the text and the URL for link segments
-        #    full_text += text_part.get("text", '') + " (" + text_part.get("url", '') + ") "
-        #else:
-        #    # Append just the text for regular text segments
-        #    full_text += text_part.get("text", '')
         full_text += text_part.get("text", '')
-        #print(f"Text so far: {full_text}")
-
+    # Get post date
     date = post_data.get("date", "Unknown")
-    image_url = post_data.get("images", [{}])[0].get("thumbnails", [{}])[-1].get("url", "")
+    # Check if there are any images, and get the largest thumbnail if available
+    image_url = ""
+    if post_data.get("images"):
+        image_url = post_data.get("images", [{}])[0].get("thumbnails", [{}])[-1].get("url", "")
 
+    # Build json for Discord Webhook
     content = {
         "text": full_text.strip(),
         "image_url": image_url,
@@ -47,13 +54,12 @@ def extract_content(post_data, youtube_channel_url):
     }
     return content
 
-
-
 # Log posted urls to file
 def log_post_url(url, log_file="posted_urls.log"):
     with open(log_file, "a") as file:
         file.write(url + "\n")
 
+# Check if url is in posted log
 def is_posted(url, log_file="posted_urls.log"):
     try:
         with open(log_file, "r") as file:
@@ -89,11 +95,15 @@ def post_to_discord(webhook_url, channel_name, content):
 
 # Main function
 def main():
-    channel_id = 'UCE6acMV3m35znLcf0JGNn7Q'  # Example channel ID
-    youtube_channel_url = f"https://www.youtube.com/channel/{channel_id}"
-    webhook_url = 'DISCORD_WEBHOOK_URL' # Replace with your Discord webhook URL
-    channel_name = 'Gibi ASMR'  # Set the channel name
+    ## VARIABLES TO DEFINE BEFORE USE ##
     all_posts = True # Select whether to send all available community posts to the webhook
+    channel_id = 'UCE6acMV3m35znLcf0JGNn7Q'  # YouTube channel ID
+    api_key = 'YOUTUBE_API_KEY' # YouTube API Key from Google Developer console
+    webhook_url = 'DISCORD_WEBHOOK_URL' # Replace with your Discord webhook URL
+    ## END VARIABLES CONFIG ##
+
+    youtube_channel_url = f"https://www.youtube.com/channel/{channel_id}"
+    channel_name = get_channel_name(channel_id, api_key)  # Set the channel name
 
     youtube_content = fetch_youtube_content(channel_id)
     if youtube_content and "items" in youtube_content:
@@ -110,7 +120,9 @@ def main():
                     response = post_to_discord(webhook_url, channel_name, content)
                     if response in range(200, 300):
                         log_post_url(content["url"])
-                    print(f"Posted to Discord with status code: {response}")
+                    print(f"{content['url']} posted to Discord with status code: {response}")
+                elif content and is_posted(content["url"]):
+                    print(f"{content['url']} already posted to Discord")
 
                 if not all_posts:
                     break  # Breaks the inner loop, stops after the first (most recent) post
