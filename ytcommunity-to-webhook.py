@@ -8,6 +8,7 @@
 import requests
 import time
 import datetime
+import os
 
 # Fetch content from a YouTube channel's Community tab using the custom API
 def fetch_youtube_content(channel_id):
@@ -60,14 +61,14 @@ def extract_content(post_data, youtube_channel_url):
     return content
 
 # Log posted urls to file
-def log_post_url(url, log_file="posted_urls.log"):
-    with open(log_file, "a") as file:
+def log_post_url(url, url_log):
+    with open(url_log, "a") as file:
         file.write(url + "\n")
 
 # Check if url is in posted log
-def is_posted(url, log_file="posted_urls.log"):
+def is_posted(url, url_log):
     try:
-        with open(log_file, "r") as file:
+        with open(url_log, "r") as file:
             posted_urls = file.read().splitlines()
         return url in posted_urls
     except FileNotFoundError:
@@ -119,6 +120,9 @@ def main():
     webhook_url = 'DISCORD_WEBHOOK_URL' # Replace with your Discord webhook URL
     ## END VARIABLES CONFIG ##
 
+    script_directory = os.path.dirname(os.path.realpath(__file__)) # Get the directory where the script is located
+    url_log_file = os.path.join(script_directory, 'posted_urls.log') # define file for logging posted urls to be in script dir
+    
     youtube_channel_url = f"https://www.youtube.com/channel/{channel_id}"
     channel_name, channel_icon_url = get_channel_info(channel_id, api_key)  # Get the channel name and icon
     print("Script run started at ", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -141,12 +145,12 @@ def main():
 
             for post in community_posts:
                 content = extract_content(post, youtube_channel_url)
-                if content and not is_posted(content["url"]):
+                if content and not is_posted(content["url"], url_log_file):
                     response = post_to_discord(webhook_url, channel_name, channel_icon_url, content, mention)
                     if response in range(200, 300):
-                        log_post_url(content["url"])
+                        log_post_url(content["url"], url_log_file)
                     print(f"{content['url']} posted to Discord with status code: {response}")
-                elif content and is_posted(content["url"]):
+                elif content and is_posted(content["url"], url_log_file):
                     print(f"{content['url']} already posted to Discord")
 
     print("Script run ended at ", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
