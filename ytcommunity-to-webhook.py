@@ -121,8 +121,7 @@ def main():
 
     youtube_channel_url = f"https://www.youtube.com/channel/{channel_id}"
     channel_name, channel_icon_url = get_channel_info(channel_id, api_key)  # Get the channel name and icon
-    now = datetime.datetime.now()
-    print("Script run started at ", now.strftime("%Y-%m-%d %H:%M:%S"))
+    print("Script run started at ", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     youtube_content = fetch_youtube_content(channel_id)
     if youtube_content and "items" in youtube_content:
         for item in youtube_content["items"]:
@@ -130,7 +129,9 @@ def main():
             
             # Reverse the order of the posts for chronological posting if all_posts is True
             if max_posts != 1:
-                community_posts = reversed(community_posts)
+                community_posts = list(reversed(community_posts)) # convert reverseiterator to list
+                if max_posts > 0:
+                    community_posts = community_posts[:max_posts] # if max_posts is not unlimited, slice list
 
             for post in community_posts:
                 content = extract_content(post, youtube_channel_url)
@@ -142,12 +143,11 @@ def main():
                 elif content and is_posted(content["url"]):
                     print(f"{content['url']} already posted to Discord")
 
-                if max_posts > 0 and len(community_posts) >= max_posts:
+                if max_posts == 1:
                     break  # Breaks the inner loop, stops after the first (most recent) post
-            if max_posts > 0 and len(community_posts) >= max_posts:
-                break  # Breaks the outer loop if only the latest post is needed
-    now = datetime.datetime.now()
-    print("Script run ended at ", now.strftime("%Y-%m-%d %H:%M:%S"))
+            if max_posts == 1:
+                break  # Breaks the inner loop, stops after the first (most recent) post
+    print("Script run ended at ", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 if __name__ == "__main__":
     main()
