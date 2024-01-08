@@ -7,6 +7,7 @@
 
 import requests
 import time
+import datetime
 
 # Fetch content from a YouTube channel's Community tab using the custom API
 def fetch_youtube_content(channel_id):
@@ -120,7 +121,8 @@ def main():
 
     youtube_channel_url = f"https://www.youtube.com/channel/{channel_id}"
     channel_name, channel_icon_url = get_channel_info(channel_id, api_key)  # Get the channel name and icon
-        
+    now = datetime.datetime.now()
+    print("Script run started at ", now.strftime("%Y-%m-%d %H:%M:%S"))
     youtube_content = fetch_youtube_content(channel_id)
     if youtube_content and "items" in youtube_content:
         for item in youtube_content["items"]:
@@ -144,6 +146,7 @@ def main():
                     break  # Breaks the inner loop, stops after the first (most recent) post
             if not all_posts:
                 break  # Breaks the outer loop if only the latest post is needed
+    print("Script run ended at ", now.strftime("%Y-%m-%d %H:%M:%S"))
 
 if __name__ == "__main__":
     main()
