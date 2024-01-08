@@ -126,12 +126,18 @@ def main():
     if youtube_content and "items" in youtube_content:
         for item in youtube_content["items"]:
             community_posts = item.get("community", [])
+            total_num_posts = len(community_posts)
             
-            # Reverse the order of the posts for chronological posting if all_posts is True
-            if max_posts != 1:
+            # Reverse the order of the posts for chronological posting if processing all posts
+            if max_posts == 0 or max_posts > total_num_posts:
                 community_posts = list(reversed(community_posts)) # convert reverseiterator to list
-                if max_posts > 0:
-                    community_posts = community_posts[:max_posts] # if max_posts is not unlimited, slice list
+            # if max_posts is not unlimited, slice list before reversing to keep most recent
+            elif max_posts > 0:
+                community_posts = community_posts[:max_posts]
+                community_posts = list(reversed(community_posts)) # convert reverseiterator to list
+            elif max_posts < 0 :
+                print(f"Invalid value {max_posts} for max_posts")
+            print(f"Sending {len(community_posts)}/{total_num_posts} most recent community posts to webhook")
 
             for post in community_posts:
                 content = extract_content(post, youtube_channel_url)
@@ -143,10 +149,6 @@ def main():
                 elif content and is_posted(content["url"]):
                     print(f"{content['url']} already posted to Discord")
 
-                if max_posts == 1:
-                    break  # Breaks the inner loop, stops after the first (most recent) post
-            if max_posts == 1:
-                break  # Breaks the inner loop, stops after the first (most recent) post
     print("Script run ended at ", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 if __name__ == "__main__":
