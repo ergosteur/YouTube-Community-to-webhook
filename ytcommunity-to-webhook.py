@@ -112,7 +112,7 @@ def post_to_discord(webhook_url, channel_name, channel_icon_url, content, mentio
 # Main function
 def main():
     ## VARIABLES TO DEFINE BEFORE USE ##
-    all_posts = True # Select whether to send all available community posts to the webhook
+    max_posts = 0  # 0 for all posts, > 0 for specific number # Select whether to send all available community posts to the webhook
     channel_id = 'UCE6acMV3m35znLcf0JGNn7Q'  # YouTube channel ID
     mention = "here"  # Set role to mention (everyone, here, none)
     api_key = 'YOUTUBE_API_KEY' # YouTube API Key from Google Developer console
@@ -129,7 +129,7 @@ def main():
             community_posts = item.get("community", [])
             
             # Reverse the order of the posts for chronological posting if all_posts is True
-            if all_posts:
+            if max_posts != 1:
                 community_posts = reversed(community_posts)
 
             for post in community_posts:
@@ -142,10 +142,11 @@ def main():
                 elif content and is_posted(content["url"]):
                     print(f"{content['url']} already posted to Discord")
 
-                if not all_posts:
+                if max_posts > 0 and len(community_posts) >= max_posts:
                     break  # Breaks the inner loop, stops after the first (most recent) post
-            if not all_posts:
+            if max_posts > 0 and len(community_posts) >= max_posts:
                 break  # Breaks the outer loop if only the latest post is needed
+    now = datetime.datetime.now()
     print("Script run ended at ", now.strftime("%Y-%m-%d %H:%M:%S"))
 
 if __name__ == "__main__":
