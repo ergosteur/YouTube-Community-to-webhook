@@ -1,6 +1,7 @@
 version: '3.8'
 services:
   pyapp:
+    image: ergosteur/ytcommunity-to-webhook:latest
     build: .
     volumes:
       - ytctwh-data:/usr/src/app/data
