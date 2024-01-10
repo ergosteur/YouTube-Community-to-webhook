@@ -5,7 +5,7 @@ services:
     volumes:
       - ytctwh-data:/usr/src/app/data
     env_file:
-      - .env
+      - stack.env
 
 volumes:
   ytctwh-data:
