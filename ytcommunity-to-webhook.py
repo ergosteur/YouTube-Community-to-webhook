@@ -158,8 +158,11 @@ def main():
             url_list = fetch_and_validate_url_list(ignorelist_url)
             if url_list:
                 initialize_posted_urls_log(url_log_file, url_list)
+                print(f"Initialized {url_log_file} from {ignorelist_url}.")
+            else:
+                print(f"Invalid list {ignorelist_url}.")
         else:
-            print("Ignorelist URL not provided. Skipping initialization.")
+            print(f"No existing log file and ignorelist URL not provided. Will post up to {max_posts} latest posts.")
 
     youtube_content = fetch_youtube_content(channel_id)
     if youtube_content and "items" in youtube_content:
