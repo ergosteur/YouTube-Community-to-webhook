@@ -9,11 +9,12 @@ import requests
 import time
 import datetime
 import os
+import sys
 import re
 
 # Fetch content from a YouTube channel's Community tab using the custom API
-def fetch_youtube_content(channel_id):
-    api_url = f"https://ergosteur.com/apis/YouTube-operational-API/channels?part=community&id={channel_id}"
+def fetch_youtube_content(channel_id, api_base_url):
+    api_url = f"{api_base_url}/channels?part=community&id={channel_id}"
     response = requests.get(api_url)
     if response.status_code == 200:
         return response.json()
@@ -128,6 +129,14 @@ def initialize_posted_urls_log(posted_urls_log_path, url_list):
         for url in url_list:
             file.write(url + '\n')
 
+# error handling + exit
+def exit_with_error(variable_name):
+    print(f"Error: The environment variable {variable_name} is not set.")
+    print("Please set this variable and run the script again.")
+    print("For example:")
+    print(f"    {variable_name}=your_value python ytcommunity-to-webhook.py")
+    sys.exit(1)
+
 
 # Main function
 def main():
@@ -138,7 +147,15 @@ def main():
     api_key = api_key = os.getenv('API_KEY') # YouTube API Key from Google Developer console
     webhook_url = webhook_url = os.getenv('WEBHOOK_URL') # Discord webhook URL
     ignorelist_url = os.getenv('POST_IGNORELIST_URL') # URL for list of community post urls to ignore
+    oper_api_base_url = os.getenv('OPER_API_BASE_URL', 'https://ergosteur.com/apis/YouTube-operational-API') # base URL to YouTube Operational API instance without trailing slash
     ## END VARIABLES CONFIG ##
+    
+    # Check required variables
+    if not api_key:
+        exit_with_error('API_KEY')
+
+    if not webhook_url:
+        exit_with_error('WEBHOOK_URL')
 
     script_directory = os.path.dirname(os.path.realpath(__file__)) # Get the directory where the script is located
     data_directory = os.path.join(script_directory, 'data') # Path to the data directory
@@ -164,7 +181,7 @@ def main():
         else:
             print(f"No existing log file and ignorelist URL not provided. Will post up to {max_posts} latest posts.")
 
-    youtube_content = fetch_youtube_content(channel_id)
+    youtube_content = fetch_youtube_content(channel_id, oper_api_base_url)
     if youtube_content and "items" in youtube_content:
         for item in youtube_content["items"]:
             community_posts = item.get("community", [])
