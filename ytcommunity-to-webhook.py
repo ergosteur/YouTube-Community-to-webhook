@@ -11,29 +11,64 @@ import datetime
 import os
 import sys
 import re
+import json
 
 # Fetch content from a YouTube channel's Community tab using the custom API
 def fetch_youtube_content(channel_id, api_base_url):
     api_url = f"{api_base_url}/channels?part=community&id={channel_id}"
-    response = requests.get(api_url)
+    try:
+        response = requests.get(api_url)
+    except requests.exceptions.RequestException as e:
+        # Handles all exceptions that requests can raise, including connection errors and timeouts
+        print(f"Request error: {e}")
+        return None
+
     if response.status_code == 200:
-        return response.json()
+        try:
+            response_data = response.json()
+        except json.JSONDecodeError:
+            print(f"Error: Unable to parse JSON response from {api_url}")
+            return None
+
+        # Check if the response contains an 'error' key
+        if 'error' in response_data:
+            error_info = response_data['error']
+            error_message = json.dumps(error_info, indent=4)  # Beautify the JSON output
+            print(f"API Error: {error_message}")
+            return None
+
+        return response_data  # Return the response data if no error is present
     else:
-        print(f"Failed to fetch data: {response.status_code}")
+        print(f"Failed to fetch data: HTTP status code {response.status_code}")
         return None
 
 # Get Channel name and icon from Channel ID using Official YouTube Data API (requires API Key)
 def get_channel_info(channel_id, api_key):
     api_url = f"https://www.googleapis.com/youtube/v3/channels?part=snippet&id={channel_id}&key={api_key}"
-    response = requests.get(api_url)
+    try:
+        response = requests.get(api_url)
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {e}")
+        return "Unknown Channel", ""
+
     if response.status_code == 200:
-        data = response.json()
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            print(f"Error: Unable to parse JSON response from {api_url}")
+            return "Unknown Channel", ""
+
         if "items" in data and len(data["items"]) > 0:
             channel_info = data["items"][0]["snippet"]
             channel_name = channel_info["title"]
             channel_icon_url = channel_info.get("thumbnails", {}).get("default", {}).get("url", "")
             return channel_name, channel_icon_url
-    return "Unknown Channel", ""
+        else:
+            print("No channel information found in the API response.")
+            return "Unknown Channel", ""
+    else:
+        print(f"Failed to fetch data: HTTP status code {response.status_code}")
+        return "Unknown Channel", ""
 
 # Extract text, image URL, and other details from the API response
 def extract_content(post_data, youtube_channel_url):
@@ -96,17 +131,26 @@ def post_to_discord(webhook_url, channel_name, channel_icon_url, content, mentio
             "footer": {"text": "Published: " + content["published_at"]}
         }]
     }
-
     # Log the data being sent
     print("Sending data to Discord:", discord_data)
 
-    response = requests.post(webhook_url, json=discord_data)
+    try:
+        response = requests.post(webhook_url, json=discord_data)
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {e}")
+        return None
+
     if response.status_code == 429 and retry_count < max_retries:
-        # Extract the retry_after value from the response
-        retry_after = response.json().get("retry_after", 1)  # Default to 1 second if not provided
+        try:
+            retry_after = response.json().get("retry_after", 1)
+        except json.JSONDecodeError:
+            retry_after = 1
+            print("Rate limited by Discord but unable to parse 'retry_after' value. Defaulting to 1 second.")
+
         print(f"Rate limited by Discord. Retrying after {retry_after} seconds (Retry {retry_count + 1}/{max_retries}).")
-        time.sleep(retry_after)  # Wait before retrying
-        return post_to_discord(webhook_url, channel_name, channel_icon_url, content, mention, retry_count + 1)  # Retry posting with incremented retry count
+        time.sleep(retry_after)
+        return post_to_discord(webhook_url, channel_name, channel_icon_url, content, mention, retry_count + 1)
+
     elif response.status_code not in range(200, 300):
         print("Error:", response.status_code, response.text)
 
