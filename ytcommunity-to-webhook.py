@@ -2,13 +2,14 @@
 # Python script for crossposting YouTube Community posts to a Discord channel.
 # Uses https://github.com/Benjamin-Loison/YouTube-operational-API to fetch the Community Posts since YouTube's Data V3 API is useless for this
 # I would recommend using your instance of the YouTube-operational-API to avoid any issues.
-# 
+#
 # Edit the variables in the main() function as needed, and the api_url in the fetch_youtube_content function.
 
 import requests
 import time
 import datetime
 import os
+import re
 
 # Fetch content from a YouTube channel's Community tab using the custom API
 def fetch_youtube_content(channel_id):
@@ -107,31 +108,65 @@ def post_to_discord(webhook_url, channel_name, channel_icon_url, content, mentio
         return post_to_discord(webhook_url, channel_name, channel_icon_url, content, mention, retry_count + 1)  # Retry posting with incremented retry count
     elif response.status_code not in range(200, 300):
         print("Error:", response.status_code, response.text)
-    
+
     return response.status_code
+
+# Functions to fetch prior urls list via http (for docker deployment)
+def fetch_and_validate_url_list(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Raises an HTTPError if the HTTP request returned an unsuccessful status code
+        urls = response.text.splitlines()
+        valid_urls = [url for url in urls if 'youtube.com' in url]
+        return valid_urls
+    except Exception as e:
+        print(f"Error fetching or validating URL list: {e}")
+        return []
+
+def initialize_posted_urls_log(posted_urls_log_path, url_list):
+    with open(posted_urls_log_path, 'w') as file:
+        for url in url_list:
+            file.write(url + '\n')
+
 
 # Main function
 def main():
-    ## VARIABLES TO DEFINE BEFORE USE ##
-    max_posts = 0  # 0 for all posts, > 0 for specific number # Select whether to send all available community posts to the webhook
-    channel_id = 'UCE6acMV3m35znLcf0JGNn7Q'  # YouTube channel ID
-    mention = "here"  # Set role to mention (everyone, here, none)
-    api_key = 'YOUTUBE_API_KEY' # YouTube API Key from Google Developer console
-    webhook_url = 'DISCORD_WEBHOOK_URL' # Replace with your Discord webhook URL
+    ## VARIABLES TO DEFINE BEFORE USE IF NOT USING DOCKER ##
+    max_posts = int(os.getenv('MAX_POSTS', 10))  # 0 for all posts, > 0 for specific number # Select whether to send all available community posts to the webhook
+    channel_id = os.getenv('CHANNEL_ID', 'UCE6acMV3m35znLcf0JGNn7Q')  # YouTube channel ID
+    mention = os.getenv('MENTION', "none")  # Set role to mention (everyone, here, none)
+    api_key = api_key = os.getenv('API_KEY') # YouTube API Key from Google Developer console
+    webhook_url = webhook_url = os.getenv('WEBHOOK_URL') # Discord webhook URL
+    ignorelist_url = os.getenv('POST_IGNORELIST_URL') # URL for list of community post urls to ignore
     ## END VARIABLES CONFIG ##
 
     script_directory = os.path.dirname(os.path.realpath(__file__)) # Get the directory where the script is located
-    url_log_file = os.path.join(script_directory, 'posted_urls.log') # define file for logging posted urls to be in script dir
-    
+    data_directory = os.path.join(script_directory, 'data') # Path to the data directory
+    # Create the data directory if it doesn't exist
+    if not os.path.exists(data_directory):
+        os.makedirs(data_directory)
+    url_log_file = os.path.join(data_directory, 'posted_urls.log') # Define file for logging posted urls
+
     youtube_channel_url = f"https://www.youtube.com/channel/{channel_id}"
     channel_name, channel_icon_url = get_channel_info(channel_id, api_key)  # Get the channel name and icon
+
     print("Script run started at ", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+    # Create the initial url_log_file from fetched list if it doesn't exist
+    if not os.path.exists(url_log_file):
+        if ignorelist_url:
+            url_list = fetch_and_validate_url_list(ignorelist_url)
+            if url_list:
+                initialize_posted_urls_log(url_log_file, url_list)
+        else:
+            print("Ignorelist URL not provided. Skipping initialization.")
+
     youtube_content = fetch_youtube_content(channel_id)
     if youtube_content and "items" in youtube_content:
         for item in youtube_content["items"]:
             community_posts = item.get("community", [])
             total_num_posts = len(community_posts)
-            
+
             # Reverse the order of the posts for chronological posting if processing all posts
             if max_posts == 0 or max_posts > total_num_posts:
                 community_posts = list(reversed(community_posts)) # convert reverseiterator to list

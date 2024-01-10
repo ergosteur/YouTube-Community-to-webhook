@@ -1,0 +1,3 @@
+# requirements for ytcommunity-to-webhook.py
+requests
+
